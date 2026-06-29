@@ -34,3 +34,5 @@ yarn-error.log*
 /pitch/
 # stray GPT Pro response dumps that landed at repo root
 gpt-pro-response-*.md
+# one-off G7 browser-automation helper (Devpost form fill) — internal only
+scripts/devpost-fill.mjs
