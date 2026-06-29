@@ -56,6 +56,7 @@ Built on the **UiPath Maestro Case** pattern and integrated **live** with the Ui
 | Component | How Red Batch uses it |
 |---|---|
 | **UiPath Automation Cloud** (Community) | The org/tenant the solution was built and runs against: `https://cloud.uipath.com/rickopc/DefaultTenant`. |
+| **UiPath Coded Agent** + **UiPath CLI** | The containment policy is also packaged as a Python **coded agent** ([`uipath-agent/`](uipath-agent)) and **published to the tenant** with the UiPath CLI (`uipath auth` → `pack` → `publish -t`). It is visible under **Orchestrator → Tenant → Packages** as `red-batch-containment` (Type: Function). |
 | **UiPath Action Center** — Tasks / Actions (`OR.Tasks`) | **The live, exercised integration.** The QA human-approval checkpoint is a real Action Center task: the agent calls `CreateTask` when it stops at the human gate and `CompleteTask` on approval — a genuine platform action with an inspectable task id, *before* any order state changes. |
 | **UiPath Orchestrator** — REST / OData API | Folders + Jobs APIs. `StartJobs` (`OR.Jobs`/`OR.Execution`) is wired for a published-process / unattended-robot environment (not available on Community). |
 | **UiPath External Applications** | OAuth 2.0 **client-credentials** application that authenticates every API call with scopes `OR.Tasks OR.Folders OR.Jobs OR.Execution`. |
@@ -67,31 +68,35 @@ runs in **cloud mode** against the live tenant; without them it falls back to an
 
 ### Where to see the UiPath usage
 
-Opening the tenant URL lands on a near-empty Orchestrator dashboard, which can read as "nothing here." That
-is a **Community-plan UI limitation, not a missing integration** — the plan does not expose an **Action
-Center** UI, the **Maestro** canvas is empty until a process is published from Studio, and there is **no
-unattended robot** to show job runs. The integration Red Batch actually uses is the **Action Center Tasks
-API**, whose task store is reachable by API but has **no dashboard surface** on this plan. Here is where the
-genuine, verifiable usage lives:
+The tenant's Orchestrator dashboard can read as "nothing here" because the **Community plan** does not expose
+an **Action Center** UI, the **Maestro** canvas is empty until a process is published from Studio, and there
+is **no unattended robot** to show job runs. That is a UI limitation, not a missing integration. Here is the
+genuine, verifiable usage — including a coded agent published into the tenant:
 
-1. **Admin → External Applications → "Red Batch Containment"** *(visible in the tenant)* — the Confidential
+1. **Orchestrator → Tenant → Packages → `red-batch-containment`** *(visible in the tenant)* — the containment
+   policy published as a UiPath **coded agent** (Type: Function, runtime python) with the
+   [UiPath CLI](https://docs.uipath.com/uipath-cli) (`uipath auth` → `pack` → `publish -t`). Source in
+   [`uipath-agent/`](uipath-agent):
+
+   ![UiPath Orchestrator — published package "red-batch-containment"](docs/uipath-orchestrator-package.png)
+
+2. **Admin → External Applications → "Red Batch Containment"** *(visible in the tenant)* — the Confidential
    OAuth 2.0 client-credentials app, scopes `OR.Tasks OR.Folders OR.Jobs OR.Execution`, that authenticates
-   every call. This is the one piece the Community UI does render:
+   every call:
 
    ![UiPath Admin — External application "Red Batch Containment"](docs/uipath-external-app.png)
 
-2. **The live app's Governance panel** at https://red-batch.veithly.workers.dev shows
+3. **The live app's Governance panel** at https://red-batch.veithly.workers.dev shows
    `Mode: Automation Cloud — configured for DefaultTenant` and a real **`UIPATH-TASK-…`** with a *View in
    UiPath Action Center* deep link, proving the deployed app holds working tenant credentials.
-3. **Reproducible API proof** — with the same credentials, the agent's approval checkpoint calls
+4. **Reproducible API proof** — with the same credentials, the agent's approval checkpoint calls
    `POST orchestrator_/tasks/GenericTasks/CreateTask` and gets back a real task (HTTP **201**, e.g.
    task **#4397163**), confirmed by `GetTaskDataById` (HTTP **200**). The OAuth token + Orchestrator
    `Folders` read are reproducible with `node scripts/uipath-smoke.mjs` (prints `TOKEN_OK`, `FOLDERS 200`,
    folder `Shared`).
 
-In short: the tasks are **created live in the tenant** at the human-approval line; the Community plan simply
-has no screen to list them. A tenant with Action Center / an unattended robot would surface them in the UI
-with no code change. **Full evidence with screenshots: [`docs/uipath-proof.md`](docs/uipath-proof.md).**
+The human-approval tasks are **created live in the tenant**; the Community plan simply has no screen to list
+them. **Full evidence with screenshots: [`docs/uipath-proof.md`](docs/uipath-proof.md).**
 
 ---
 
@@ -100,9 +105,11 @@ with no code change. **Full evidence with screenshots: [`docs/uipath-proof.md`](
 **Coded Agent.** Red Batch's Batch Containment Agent is a **custom-coded agent written in TypeScript**
 (`app/lib/agent/containmentAgent.ts`) driving a deterministic policy (`app/lib/policy.ts`). It is **not** a
 low-code / Agent Builder agent. It integrates with the UiPath platform through the **Orchestrator / Action
-Center REST API** for the governed human-in-the-loop checkpoint. An **optional, additive LLM**
-(`app/lib/llm.ts`) only *narrates* the agent's reasoning and never decides matching, approval, mutation, or
-verification.
+Center REST API** for the governed human-in-the-loop checkpoint. The same policy is additionally **published
+to UiPath as a Python coded agent** ([`uipath-agent/`](uipath-agent), via `uipath pack` / `uipath publish`),
+so it exists as a real coded-agent package in the tenant (Orchestrator → Tenant → Packages). An **optional,
+additive LLM** (`app/lib/llm.ts`) only *narrates* the agent's reasoning and never decides matching, approval,
+mutation, or verification.
 
 ---
 
