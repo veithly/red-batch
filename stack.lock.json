@@ -1,0 +1,62 @@
+{
+  "project_language": "TypeScript",
+  "branch": "AI",
+  "frontend": "Next.js App Router + Tailwind CSS v4 + custom React primitives",
+  "storage": "Owned server-side SQL persistence via Node built-in node:sqlite (file-backed), Postgres-portable schema",
+  "storage_decision": "G3 credential discovery found no managed Postgres/Neon DATABASE_URL. To keep a guaranteed-runnable demo with real owned persisted state that survives refresh and process restart, the runnable build uses Node's built-in node:sqlite (zero native build on Node 26). The schema and repository are SQL-standard and portable to Neon Postgres by swapping the driver. This is a recorded G2->G3 cut, not a downgrade of the persistence guarantee.",
+  "real_data_source": "Owned persisted Red Batch workspace data (SQLite file) plus a UiPath-governed orchestration adapter for case/agent/approval/mutation/verification",
+  "real_data_sources": [
+    "PostgreSQL tables for containment cases, risk signals, affected orders, approvals, packets, and timeline events",
+    "UiPath Automation Cloud / Maestro Case for the governed case object and agent orchestration",
+    "UiPath/API workflow boundary for order-status mutation and verification",
+    "Seeded/imported operational order, lot, and complaint data loaded into the owned database"
+  ],
+  "deployment": "Vercel for the product UI and API routes, paired with UiPath Automation Cloud for case orchestration",
+  "required_env": [
+    "DATABASE_URL",
+    "APP_SECRET",
+    "DEMO_WORKSPACE_ID",
+    "UIPATH_ORG_URL",
+    "UIPATH_TENANT_NAME",
+    "UIPATH_CLIENT_ID",
+    "UIPATH_CLIENT_SECRET",
+    "UIPATH_FOLDER_ID",
+    "UIPATH_PROCESS_KEY_CONTAINMENT",
+    "UIPATH_PROCESS_KEY_ORDER_MUTATION",
+    "UIPATH_ACTION_APP_ID",
+    "ORDER_API_BASE_URL",
+    "ORDER_API_TOKEN",
+    "ORDER_QUARANTINE_STATUS"
+  ],
+  "credential_discovery": {
+    "checked_sources": [
+      "project .env.local (absent)",
+      "project .dev.vars (absent)",
+      "project .env (absent)",
+      "$HOME/user_key.txt (absent)",
+      "$HOME/use_key.txt (present)"
+    ],
+    "found": {
+      "openai_compatible_llm": "present (StepFun OpenAI-compatible endpoint; used additively for agent narration only, never as source of truth for matching/mutation/verification)",
+      "tts": "present (MiMo v2.5 TTS; used in G5 for demo narration)",
+      "uipath_automation_cloud": "absent (no UIPATH_* credentials available)",
+      "managed_postgres_neon": "absent (no DATABASE_URL)",
+      "web3": "present but intentionally unused (no chain/protocol branch selected for this product)"
+    },
+    "apply_command": "node scripts/apply-use-key-env.mjs (maps $HOME/use_key.txt -> .env.local for OPENAI_* only)",
+    "result": "partial: real persistence + optional real LLM narration available; UiPath cloud runs in honest local-governance mode with transparent integration status",
+    "secret_values_printed": false
+  },
+  "live_provider_smoke": {
+    "command": "npm run smoke (runs hero RB-2049 full-stop and ambiguity RB-7712 review against the persisted store + governance adapter)",
+    "evidence": "see pitch/reality_review.md and .hunter/operations-check.json after G3"
+  },
+  "why_this_stack": "This is the simplest stack that keeps Red Batch as a real case product: Next.js gives a fast product shell and server-side secret boundary, PostgreSQL gives owned persisted state and reopenable packets, and UiPath remains the governed orchestration and execution layer for the hero loop.",
+  "cut_if_time_runs_out": [
+    "PDF packet export if in-app packet view is already persistent and inspectable",
+    "BPMN-backed deterministic subflows beyond the primary containment mutation",
+    "Customer-notification workflows after containment",
+    "Analytics, portfolio dashboards, and multi-case management beyond a minimal queue",
+    "Adjacent case templates beyond the primary bad-batch path and one ambiguity branch"
+  ]
+}

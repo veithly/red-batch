@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+:root {
+  --rb-red: #e11d2a;
+  --rb-red-dark: #b4141f;
+  --rb-ink: #0c0a09;
+  --rb-bg: #f6f5f4;
+  --rb-panel: #ffffff;
+  --rb-line: #e7e5e4;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--rb-bg);
+  color: var(--rb-ink);
+  -webkit-font-smoothing: antialiased;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
+    "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+.rb-panel {
+  background: var(--rb-panel);
+  border: 1px solid var(--rb-line);
+  border-radius: 0.875rem;
+}
+
+.rb-divider {
+  border-color: var(--rb-line);
+}
+
+@keyframes rb-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.rb-step {
+  animation: rb-fade-up 0.35s ease both;
+}
+
+@keyframes rb-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+.rb-pulse {
+  animation: rb-pulse 1.1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rb-step,
+  .rb-pulse {
+    animation: none;
+  }
+}
