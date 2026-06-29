@@ -39,27 +39,37 @@ export interface CaseDetail {
   integration: IntegrationStatus;
 }
 
-export function getCaseDetail(code: string): CaseDetail | null {
-  ensureSeeded();
-  const c = getCase(code);
+export async function getCaseDetail(code: string): Promise<CaseDetail | null> {
+  await ensureSeeded();
+  const c = await getCase(code);
   if (!c) return null;
-  const orders = getCaseOrders(c.id);
+  const [orders, signal, evidence, approvals, timeline, evidenceTasks, governedRuns, packet, integration] =
+    await Promise.all([
+      getCaseOrders(c.id),
+      getSignal(c.id),
+      getEvidence(c.id),
+      getApprovals(c.id),
+      getTimeline(c.id),
+      getEvidenceTasks(c.id),
+      getGovernedRuns(c.id),
+      getPacketByCase(c.id),
+      getIntegrationStatus(),
+    ]);
   const included = orders.filter((r) => r.included === 1);
   const excluded = orders.filter((r) => r.included !== 1);
-  const packet = getPacketByCase(c.id);
   return {
     case: c,
-    signal: getSignal(c.id),
-    evidence: getEvidence(c.id),
+    signal,
+    evidence,
     orders,
     included,
     excluded,
-    approvals: getApprovals(c.id),
-    timeline: getTimeline(c.id),
-    evidenceTasks: getEvidenceTasks(c.id),
-    governedRuns: getGovernedRuns(c.id),
+    approvals,
+    timeline,
+    evidenceTasks,
+    governedRuns,
     packetCode: c.packet_code ?? packet?.code ?? null,
     includedValueCents: included.reduce((s, r) => s + (r.value_cents || 0), 0),
-    integration: getIntegrationStatus(),
+    integration,
   };
 }

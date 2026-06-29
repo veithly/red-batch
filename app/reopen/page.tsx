@@ -27,7 +27,7 @@ export default function ReopenPage() {
     setLoading(true);
     try {
       const res = await fetch(`/api/search?q=${encodeURIComponent(term)}`);
-      const json = await res.json();
+      const json = (await res.json()) as { results?: Result[] };
       setResults(json.results ?? []);
     } catch {
       setResults([]);

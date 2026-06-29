@@ -10,7 +10,7 @@
  * with a transparent integration status. The order-state mutation itself is a
  * real, persisted write in both modes — it is never faked.
  */
-import { getDb } from "@/app/lib/db/client";
+import { q1 } from "@/app/lib/db/client";
 
 export type Mode = "cloud" | "local-governed";
 
@@ -37,13 +37,13 @@ export function llmAvailable(): boolean {
   return Boolean(process.env.OPENAI_API_KEY);
 }
 
-export function getIntegrationStatus(): IntegrationStatus {
+export async function getIntegrationStatus(): Promise<IntegrationStatus> {
   let dbOk = false;
   let dbDetail = "unavailable";
   try {
-    const r = getDb().prepare("SELECT COUNT(*) AS n FROM orders").get() as { n: number };
+    const r = await q1<{ n: number }>("SELECT COUNT(*) AS n FROM orders");
     dbOk = true;
-    dbDetail = `owned SQL store reachable • ${r.n} operational orders`;
+    dbDetail = `owned SQL store reachable • ${r?.n ?? 0} operational orders`;
   } catch (e) {
     dbDetail = `owned SQL store error: ${(e as Error).message}`;
   }

@@ -8,6 +8,11 @@
 /out/
 next-env.d.ts
 
+# cloudflare / opennext build output + generated bindings
+/.open-next/
+/.wrangler/
+cloudflare-env.d.ts
+
 # production
 /build
 

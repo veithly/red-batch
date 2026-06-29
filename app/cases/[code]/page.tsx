@@ -15,7 +15,7 @@ export default async function CasePage({
 }) {
   const { code } = await params;
   const { order } = await searchParams;
-  const detail = getCaseDetail(code);
+  const detail = await getCaseDetail(code);
   const active = code === "RB-2049" ? "active-case" : "cases";
 
   if (!detail) {

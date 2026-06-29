@@ -21,7 +21,7 @@ export default function EntryPage() {
 
   useEffect(() => {
     fetch("/api/integration-status")
-      .then((r) => r.json())
+      .then((r) => r.json() as Promise<Status>)
       .then(setStatus)
       .catch(() => setStatus(null));
   }, []);

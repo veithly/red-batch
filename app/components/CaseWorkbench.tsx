@@ -67,7 +67,7 @@ export function CaseWorkbench({ data }: { data: WorkbenchData }) {
     setRevealed(0);
     try {
       const res = await fetch(`/api/cases/${c.code}/run`, { method: "POST" });
-      const json = await res.json();
+      const json = (await res.json()) as { ok?: boolean; error?: string; trace?: TraceStep[] };
       if (!res.ok || !json.ok) throw new Error(json.error || "Run failed");
       const steps: TraceStep[] = json.trace?.length ? json.trace : DEFAULT_TRACE;
       setTrace(steps);
@@ -91,7 +91,7 @@ export function CaseWorkbench({ data }: { data: WorkbenchData }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ decision, role: s.role, name: s.name, reason: "QA requested additional evidence." }),
         });
-        const json = await res.json();
+        const json = (await res.json()) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) throw new Error(json.error || "Request failed");
         router.refresh();
       } catch (e) {
@@ -107,7 +107,7 @@ export function CaseWorkbench({ data }: { data: WorkbenchData }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ decision, role: s.role, name: s.name }),
       });
-      const json = await res.json();
+      const json = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) throw new Error(json.error || "Approval failed");
       await revealSequentially(MUT_STEPS.length, setMutStep, 780);
       await wait(650);

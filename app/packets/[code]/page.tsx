@@ -32,8 +32,8 @@ interface PacketSummary {
 
 export default async function PacketPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
-  ensureSeeded();
-  const packet = getPacketByCode(code);
+  await ensureSeeded();
+  const packet = await getPacketByCode(code);
 
   if (!packet) {
     return (
@@ -49,10 +49,10 @@ export default async function PacketPage({ params }: { params: Promise<{ code: s
     );
   }
 
-  const c = getCaseById(packet.case_id);
+  const c = await getCaseById(packet.case_id);
   const s = JSON.parse(packet.summary_json) as PacketSummary;
-  if (c) addTimeline(c.id, "Customer Ops", "Packet reopened", `Packet ${code} reopened for inspection.`, { phase: "reopen" });
-  const runs = c ? getGovernedRuns(c.id) : [];
+  if (c) await addTimeline(c.id, "Customer Ops", "Packet reopened", `Packet ${code} reopened for inspection.`, { phase: "reopen" });
+  const runs = c ? await getGovernedRuns(c.id) : [];
 
   return (
     <AppShell active="reopen">

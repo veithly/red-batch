@@ -7,9 +7,9 @@ import { caseChip, severityChip } from "@/app/lib/format";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export default function CasesPage() {
-  ensureSeeded();
-  const cases = listCases();
+export default async function CasesPage() {
+  await ensureSeeded();
+  const cases = await listCases();
 
   return (
     <AppShell active="cases">

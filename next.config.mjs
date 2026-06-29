@@ -1,8 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // node: builtins (node:sqlite) are externalized by default on the server runtime.
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: false },
 };
 
 export default nextConfig;
+
+// Enable the Cloudflare bindings (D1, env) inside `next dev` via OpenNext.
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
+initOpenNextCloudflareForDev();

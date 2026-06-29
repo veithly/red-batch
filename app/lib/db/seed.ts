@@ -89,14 +89,15 @@ function buildOrders(): SeedOrder[] {
   return orders;
 }
 
-export function seedWorkspace(): void {
+export async function seedWorkspace(): Promise<void> {
   const db = getDb();
   const ts = "2026-05-18T09:41:00.000Z";
+  const stmts: D1PreparedStatement[] = [];
 
-  db.prepare("INSERT INTO workspaces (id, name, created_at) VALUES (?, ?, ?)").run(
-    WORKSPACE_ID,
-    "Red Batch — Demo Workspace",
-    ts,
+  stmts.push(
+    db
+      .prepare("INSERT INTO workspaces (id, name, created_at) VALUES (?, ?, ?)")
+      .bind(WORKSPACE_ID, "Red Batch — Demo Workspace", ts),
   );
 
   // orders
@@ -105,22 +106,24 @@ export function seedWorkspace(): void {
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   for (const o of buildOrders()) {
-    ordStmt.run(
-      uid("ord_"),
-      o.code,
-      WORKSPACE_ID,
-      SKU,
-      o.lot,
-      o.warehouse,
-      o.zone,
-      o.status,
-      o.value_cents,
-      `CUST-${o.code.replace("O-", "")}`,
-      ts,
+    stmts.push(
+      ordStmt.bind(
+        uid("ord_"),
+        o.code,
+        WORKSPACE_ID,
+        SKU,
+        o.lot,
+        o.warehouse,
+        o.zone,
+        o.status,
+        o.value_cents,
+        `CUST-${o.code.replace("O-", "")}`,
+        ts,
+      ),
     );
   }
 
-  // helper to add a case + signal + evidence
+  // helper to add a case + signal + evidence + intake timeline
   function addCase(opts: {
     code: string;
     title: string;
@@ -132,44 +135,70 @@ export function seedWorkspace(): void {
   }) {
     const caseId = uid("case_");
     const signalId = `SIG-${opts.code}`;
-    db.prepare(
-      `INSERT INTO cases (id, code, workspace_id, title, status, signal_id, sku, lot, warehouse, severity, confidence, threshold, plan, scope_hash, affected_count, excluded_count, packet_code, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      caseId,
-      opts.code,
-      WORKSPACE_ID,
-      opts.title,
-      "Ready for Containment",
-      signalId,
-      SKU,
-      opts.lot,
-      opts.warehouse,
-      opts.severity,
-      opts.confidence,
-      0.7,
-      null,
-      null,
-      0,
-      0,
-      null,
-      ts,
-      ts,
+    stmts.push(
+      db
+        .prepare(
+          `INSERT INTO cases (id, code, workspace_id, title, status, signal_id, sku, lot, warehouse, severity, confidence, threshold, plan, scope_hash, affected_count, excluded_count, packet_code, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          caseId,
+          opts.code,
+          WORKSPACE_ID,
+          opts.title,
+          "Ready for Containment",
+          signalId,
+          SKU,
+          opts.lot,
+          opts.warehouse,
+          opts.severity,
+          opts.confidence,
+          0.7,
+          null,
+          null,
+          0,
+          0,
+          null,
+          ts,
+          ts,
+        ),
     );
-    db.prepare(
-      "INSERT INTO risk_signals (id, case_id, summary, source, received_at, product) VALUES (?, ?, ?, ?, ?, ?)",
-    ).run(signalId, caseId, opts.summary, "Customer Support Portal", ts, SKU);
-
-    const ev = db.prepare(
-      "INSERT INTO evidence (id, case_id, kind, label, detail, confidence) VALUES (?, ?, ?, ?, ?, ?)",
+    stmts.push(
+      db
+        .prepare("INSERT INTO risk_signals (id, case_id, summary, source, received_at, product) VALUES (?, ?, ?, ?, ?, ?)")
+        .bind(signalId, caseId, opts.summary, "Customer Support Portal", ts, SKU),
     );
-    ev.run(uid("ev_"), caseId, "Complaint", "Customer complaint", opts.summary, opts.confidence);
-    ev.run(uid("ev_"), caseId, "Lot mapping", `Lot ${opts.lot} → ${SKU}`, `Lot ${opts.lot} maps to ${SKU} produced for ${opts.warehouse}.`, opts.confidence);
-    ev.run(uid("ev_"), caseId, "Policy", "Full-stop threshold", "Confidence ≥ 0.70 with severity High/Critical authorizes a full stop-ship proposal.", null);
 
-    db.prepare(
-      "INSERT INTO timeline_events (id, case_id, seq, actor, phase, event_type, detail, from_state, to_state, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-    ).run(uid("tl_"), caseId, 1, "System", "intake", "Case created from customer report", opts.summary, null, "Ready for Containment", ts);
+    const ev = db.prepare("INSERT INTO evidence (id, case_id, kind, label, detail, confidence) VALUES (?, ?, ?, ?, ?, ?)");
+    stmts.push(ev.bind(uid("ev_"), caseId, "Complaint", "Customer complaint", opts.summary, opts.confidence));
+    stmts.push(
+      ev.bind(
+        uid("ev_"),
+        caseId,
+        "Lot mapping",
+        `Lot ${opts.lot} → ${SKU}`,
+        `Lot ${opts.lot} maps to ${SKU} produced for ${opts.warehouse}.`,
+        opts.confidence,
+      ),
+    );
+    stmts.push(
+      ev.bind(
+        uid("ev_"),
+        caseId,
+        "Policy",
+        "Full-stop threshold",
+        "Confidence ≥ 0.70 with severity High/Critical authorizes a full stop-ship proposal.",
+        null,
+      ),
+    );
+
+    stmts.push(
+      db
+        .prepare(
+          "INSERT INTO timeline_events (id, case_id, seq, actor, phase, event_type, detail, from_state, to_state, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(uid("tl_"), caseId, 1, "System", "intake", "Case created from customer report", opts.summary, null, "Ready for Containment", ts),
+    );
   }
 
   addCase({
@@ -192,4 +221,6 @@ export function seedWorkspace(): void {
     summary:
       "Customer reports overheating, but thermal readings in warehouse logs are within normal range and lot metadata is partially inconsistent across sources.",
   });
+
+  await db.batch(stmts);
 }

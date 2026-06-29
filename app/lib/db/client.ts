@@ -1,147 +1,39 @@
-import { DatabaseSync } from "node:sqlite";
-import fs from "node:fs";
-import path from "node:path";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
-const SCHEMA = `
-CREATE TABLE IF NOT EXISTS workspaces (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  created_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS cases (
-  id TEXT PRIMARY KEY,
-  code TEXT UNIQUE NOT NULL,
-  workspace_id TEXT NOT NULL,
-  title TEXT NOT NULL,
-  status TEXT NOT NULL,
-  signal_id TEXT NOT NULL,
-  sku TEXT NOT NULL,
-  lot TEXT NOT NULL,
-  warehouse TEXT NOT NULL,
-  severity TEXT NOT NULL,
-  confidence REAL NOT NULL,
-  threshold REAL NOT NULL,
-  plan TEXT,
-  scope_hash TEXT,
-  affected_count INTEGER NOT NULL DEFAULT 0,
-  excluded_count INTEGER NOT NULL DEFAULT 0,
-  packet_code TEXT,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS risk_signals (
-  id TEXT PRIMARY KEY,
-  case_id TEXT NOT NULL,
-  summary TEXT NOT NULL,
-  source TEXT NOT NULL,
-  received_at TEXT NOT NULL,
-  product TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS orders (
-  id TEXT PRIMARY KEY,
-  code TEXT UNIQUE NOT NULL,
-  workspace_id TEXT NOT NULL,
-  sku TEXT NOT NULL,
-  lot TEXT NOT NULL,
-  warehouse TEXT NOT NULL,
-  zone TEXT NOT NULL,
-  status TEXT NOT NULL,
-  value_cents INTEGER NOT NULL,
-  customer_ref TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS case_orders (
-  id TEXT PRIMARY KEY,
-  case_id TEXT NOT NULL,
-  order_id TEXT NOT NULL,
-  order_code TEXT NOT NULL,
-  before_status TEXT NOT NULL,
-  proposed_status TEXT NOT NULL,
-  final_status TEXT,
-  included INTEGER NOT NULL,
-  reason TEXT NOT NULL,
-  mutation_result TEXT,
-  verified INTEGER NOT NULL DEFAULT 0,
-  zone TEXT NOT NULL DEFAULT '',
-  value_cents INTEGER NOT NULL DEFAULT 0
-);
-CREATE TABLE IF NOT EXISTS evidence (
-  id TEXT PRIMARY KEY,
-  case_id TEXT NOT NULL,
-  kind TEXT NOT NULL,
-  label TEXT NOT NULL,
-  detail TEXT NOT NULL,
-  confidence REAL
-);
-CREATE TABLE IF NOT EXISTS approvals (
-  id TEXT PRIMARY KEY,
-  case_id TEXT NOT NULL,
-  approver_role TEXT NOT NULL,
-  approver_name TEXT NOT NULL,
-  decision TEXT NOT NULL,
-  reason TEXT,
-  scope_count INTEGER NOT NULL,
-  scope_hash TEXT NOT NULL,
-  created_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS packets (
-  id TEXT PRIMARY KEY,
-  code TEXT UNIQUE NOT NULL,
-  case_id TEXT NOT NULL,
-  status TEXT NOT NULL,
-  summary_json TEXT NOT NULL,
-  created_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS timeline_events (
-  id TEXT PRIMARY KEY,
-  case_id TEXT NOT NULL,
-  seq INTEGER NOT NULL,
-  actor TEXT NOT NULL,
-  phase TEXT,
-  event_type TEXT NOT NULL,
-  detail TEXT NOT NULL,
-  from_state TEXT,
-  to_state TEXT,
-  created_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS evidence_tasks (
-  id TEXT PRIMARY KEY,
-  case_id TEXT NOT NULL,
-  label TEXT NOT NULL,
-  detail TEXT NOT NULL,
-  status TEXT NOT NULL,
-  created_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS governed_runs (
-  id TEXT PRIMARY KEY,
-  case_id TEXT NOT NULL,
-  kind TEXT NOT NULL,
-  mode TEXT NOT NULL,
-  run_ref TEXT NOT NULL,
-  status TEXT NOT NULL,
-  detail TEXT,
-  created_at TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_orders_lot_wh ON orders(lot, warehouse);
-CREATE INDEX IF NOT EXISTS idx_case_orders_case ON case_orders(case_id);
-CREATE INDEX IF NOT EXISTS idx_timeline_case ON timeline_events(case_id, seq);
-`;
-
-type GlobalDb = typeof globalThis & { __redBatchDb?: DatabaseSync };
-
-function dbPath(): string {
-  const dir = path.join(process.cwd(), ".data");
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  return path.join(dir, "redbatch.sqlite");
+/**
+ * Cloudflare D1 access layer.
+ *
+ * Red Batch's owned operational store. Locally and in production this is a
+ * Cloudflare D1 (SQLite) database bound as `DB` via OpenNext. The schema lives
+ * in `migrations/0001_init.sql` and is applied with `wrangler d1 migrations
+ * apply`. All reads/writes go through the async helpers below so the rest of
+ * the app never touches the binding directly.
+ */
+export function getDb(): D1Database {
+  const { env } = getCloudflareContext();
+  const db = (env as unknown as { DB?: D1Database }).DB;
+  if (!db) throw new Error("D1 binding 'DB' is not configured (set d1_databases in wrangler.jsonc)");
+  return db;
 }
 
-export function getDb(): DatabaseSync {
-  const g = globalThis as GlobalDb;
-  if (g.__redBatchDb) return g.__redBatchDb;
-  const db = new DatabaseSync(dbPath());
-  db.exec("PRAGMA journal_mode = WAL;");
-  db.exec("PRAGMA foreign_keys = ON;");
-  db.exec(SCHEMA);
-  g.__redBatchDb = db;
-  return db;
+function stmt(sql: string, params: unknown[]): D1PreparedStatement {
+  const s = getDb().prepare(sql);
+  return params.length ? s.bind(...params) : s;
+}
+
+/** First row or undefined. */
+export async function q1<T>(sql: string, ...params: unknown[]): Promise<T | undefined> {
+  const row = await stmt(sql, params).first<Record<string, unknown>>();
+  return (row ?? undefined) as T | undefined;
+}
+
+/** All rows. */
+export async function qAll<T>(sql: string, ...params: unknown[]): Promise<T[]> {
+  const res = await stmt(sql, params).all<Record<string, unknown>>();
+  return (res.results ?? []) as unknown as T[];
+}
+
+/** INSERT/UPDATE/DELETE. */
+export async function run(sql: string, ...params: unknown[]): Promise<void> {
+  await stmt(sql, params).run();
 }

@@ -54,7 +54,7 @@ function packetCodeFor(caseCode: string): string {
 }
 
 export async function runContainment(caseCode: string): Promise<RunResult> {
-  const c = getCase(caseCode);
+  const c = await getCase(caseCode);
   if (!c) throw Object.assign(new Error("Case not found"), { code: 404 });
 
   if (c.status !== "Ready for Containment") {
@@ -71,12 +71,12 @@ export async function runContainment(caseCode: string): Promise<RunResult> {
     };
   }
 
-  const signal = getSignal(c.id);
+  const signal = await getSignal(c.id);
   const mode = uipathMode();
   const trace: TraceStep[] = [];
 
-  updateCaseStatus(c.id, "Analyzing");
-  addTimeline(c.id, "Batch Containment Agent", "Agent run started", "Reading risk signal and order graph.", {
+  await updateCaseStatus(c.id, "Analyzing");
+  await addTimeline(c.id, "Batch Containment Agent", "Agent run started", "Reading risk signal and order graph.", {
     phase: "observe",
     from: "Ready for Containment",
     to: "Analyzing",
@@ -93,12 +93,12 @@ export async function runContainment(caseCode: string): Promise<RunResult> {
     title: "Map lot / SKU / warehouse",
     detail: `Lot ${c.lot} maps to ${c.sku} in warehouse ${c.warehouse}.`,
   });
-  addTimeline(c.id, "Batch Containment Agent", "Tool: lot mapping", `Lot ${c.lot} → ${c.sku} @ ${c.warehouse}`, {
+  await addTimeline(c.id, "Batch Containment Agent", "Tool: lot mapping", `Lot ${c.lot} → ${c.sku} @ ${c.warehouse}`, {
     phase: "tool",
   });
 
   // fan out: candidate orders for this lot
-  const lotOrders = getOrdersByLot(c.lot);
+  const lotOrders = await getOrdersByLot(c.lot);
   const rows: Omit<CaseOrderRow, "id">[] = [];
   const eligible: OrderRow[] = [];
   for (const o of lotOrders) {
@@ -115,7 +115,7 @@ export async function runContainment(caseCode: string): Promise<RunResult> {
     title: "Fan out affected orders",
     detail: `Found ${eligible.length} eligible Ready to Ship orders for lot ${c.lot} in ${c.warehouse}.`,
   });
-  addTimeline(c.id, "Batch Containment Agent", "Tool: order fan-out", `${eligible.length} eligible orders, ${rows.length} excluded`, {
+  await addTimeline(c.id, "Batch Containment Agent", "Tool: order fan-out", `${eligible.length} eligible orders, ${rows.length} excluded`, {
     phase: "tool",
   });
 
@@ -153,15 +153,15 @@ export async function runContainment(caseCode: string): Promise<RunResult> {
     for (const o of eligible) rows.push({ ...candidateRow(c, o, "Monitor only — below action threshold."), included: 0 });
   }
 
-  replaceCaseOrders(c.id, rows);
+  await replaceCaseOrders(c.id, rows);
   const included = rows.filter((r) => r.included === 1);
   const includedCodes = included.map((r) => r.order_code);
   const excludedCount = rows.length - included.length;
   const scopeHash = scopeHashOf(includedCodes);
-  setCasePlanScope(c.id, decision.plan, scopeHash, included.length, excludedCount);
+  await setCasePlanScope(c.id, decision.plan, scopeHash, included.length, excludedCount);
 
   const cref = runRef("containment", caseCode);
-  addGovernedRun(c.id, "containment", mode, cref, "completed", `plan=${decision.plan}`);
+  await addGovernedRun(c.id, "containment", mode, cref, "completed", `plan=${decision.plan}`);
   if (mode === "cloud" && process.env.UIPATH_PROCESS_KEY_CONTAINMENT) {
     // best-effort governed process start; never blocks the demo path
     void startCloudProcess(process.env.UIPATH_PROCESS_KEY_CONTAINMENT, { caseCode, lot: c.lot });
@@ -174,8 +174,8 @@ export async function runContainment(caseCode: string): Promise<RunResult> {
   });
 
   if (decision.plan === "full_stop") {
-    updateCaseStatus(c.id, "Awaiting QA Approval");
-    addTimeline(c.id, "Batch Containment Agent", "Proposed full stop-ship", `${included.length} orders proposed for quarantine, pending QA approval.`, {
+    await updateCaseStatus(c.id, "Awaiting QA Approval");
+    await addTimeline(c.id, "Batch Containment Agent", "Proposed full stop-ship", `${included.length} orders proposed for quarantine, pending QA approval.`, {
       phase: "plan",
       from: "Analyzing",
       to: "Awaiting QA Approval",
@@ -186,13 +186,13 @@ export async function runContainment(caseCode: string): Promise<RunResult> {
       detail: `Created an approval checkpoint for ${included.length} orders. No state has changed yet.`,
     });
   } else if (decision.plan === "human_review") {
-    updateCaseStatus(c.id, "Human Review Required");
-    addEvidenceTask(
+    await updateCaseStatus(c.id, "Human Review Required");
+    await addEvidenceTask(
       c.id,
       "Review customer photos and thermal logs",
       "Compare submitted evidence against threshold criteria to confirm or rule out the suspected lot.",
     );
-    addTimeline(c.id, "Batch Containment Agent", "Routed to human review", `Confidence ${c.confidence.toFixed(2)} below threshold; partial scope (${included.length}) proposed and an evidence task queued.`, {
+    await addTimeline(c.id, "Batch Containment Agent", "Routed to human review", `Confidence ${c.confidence.toFixed(2)} below threshold; partial scope (${included.length}) proposed and an evidence task queued.`, {
       phase: "plan",
       from: "Analyzing",
       to: "Human Review Required",
@@ -203,8 +203,8 @@ export async function runContainment(caseCode: string): Promise<RunResult> {
       detail: `Lot confidence is below the full-stop threshold. Proposed a partial hold of ${included.length} orders and queued one evidence task.`,
     });
   } else {
-    updateCaseStatus(c.id, "No Containment Needed");
-    addTimeline(c.id, "Batch Containment Agent", "No containment needed", "No eligible orders or confidence below monitor floor.", {
+    await updateCaseStatus(c.id, "No Containment Needed");
+    await addTimeline(c.id, "Batch Containment Agent", "No containment needed", "No eligible orders or confidence below monitor floor.", {
       phase: "plan",
       from: "Analyzing",
       to: "No Containment Needed",
@@ -231,8 +231,8 @@ export async function runContainment(caseCode: string): Promise<RunResult> {
       },
     });
     if (task.ok) {
-      addGovernedRun(c.id, "approval_task", mode, task.ref, "pending", task.url ?? "Action Center external task");
-      addTimeline(c.id, "Batch Containment Agent", "UiPath approval task created", `Action Center task ${task.ref} opened for the QA human checkpoint.`, {
+      await addGovernedRun(c.id, "approval_task", mode, task.ref, "pending", task.url ?? "Action Center external task");
+      await addTimeline(c.id, "Batch Containment Agent", "UiPath approval task created", `Action Center task ${task.ref} opened for the QA human checkpoint.`, {
         phase: "approval",
       });
       trace.push({
@@ -243,7 +243,7 @@ export async function runContainment(caseCode: string): Promise<RunResult> {
     }
   }
 
-  const updated = getCase(caseCode)!;
+  const updated = (await getCase(caseCode))!;
   return {
     ok: true,
     alreadyRun: false,
@@ -274,14 +274,14 @@ export interface ApproveResult {
 }
 
 export async function approveAndExecute(caseCode: string, input: ApproveInput): Promise<ApproveResult> {
-  const c = getCase(caseCode);
+  const c = await getCase(caseCode);
   if (!c) throw Object.assign(new Error("Case not found"), { code: 404 });
 
   if (input.decision === "request_evidence") {
-    addEvidenceTask(c.id, "Additional evidence requested", input.reason || "QA requested more evidence before any hold.");
-    addApproval(c.id, input.role, input.name, "request_evidence", input.reason ?? null, c.affected_count, c.scope_hash ?? "");
-    updateCaseStatus(c.id, "Evidence Requested");
-    addTimeline(c.id, `${input.name} (${input.role})`, "Requested more evidence", input.reason || "More evidence requested before any stop-ship.", {
+    await addEvidenceTask(c.id, "Additional evidence requested", input.reason || "QA requested more evidence before any hold.");
+    await addApproval(c.id, input.role, input.name, "request_evidence", input.reason ?? null, c.affected_count, c.scope_hash ?? "");
+    await updateCaseStatus(c.id, "Evidence Requested");
+    await addTimeline(c.id, `${input.name} (${input.role})`, "Requested more evidence", input.reason || "More evidence requested before any stop-ship.", {
       phase: "approval",
       from: c.status as CaseRow["status"],
       to: "Evidence Requested",
@@ -290,9 +290,9 @@ export async function approveAndExecute(caseCode: string, input: ApproveInput): 
   }
 
   if (input.decision === "reject") {
-    addApproval(c.id, input.role, input.name, "reject", input.reason ?? null, c.affected_count, c.scope_hash ?? "");
-    updateCaseStatus(c.id, "Evidence Requested");
-    addTimeline(c.id, `${input.name} (${input.role})`, "Rejected hold", input.reason || "Hold rejected; no orders mutated.", {
+    await addApproval(c.id, input.role, input.name, "reject", input.reason ?? null, c.affected_count, c.scope_hash ?? "");
+    await updateCaseStatus(c.id, "Evidence Requested");
+    await addTimeline(c.id, `${input.name} (${input.role})`, "Rejected hold", input.reason || "Hold rejected; no orders mutated.", {
       phase: "approval",
       from: c.status as CaseRow["status"],
       to: "Evidence Requested",
@@ -305,7 +305,7 @@ export async function approveAndExecute(caseCode: string, input: ApproveInput): 
     throw Object.assign(new Error(`Case is not awaiting approval (status: ${c.status}).`), { code: 409 });
   }
 
-  const included = getCaseOrders(c.id).filter((r) => r.included === 1);
+  const included = (await getCaseOrders(c.id)).filter((r) => r.included === 1);
   const currentHash = scopeHashOf(included.map((r) => r.order_code));
   if (c.scope_hash && currentHash !== c.scope_hash) {
     throw Object.assign(new Error("Affected-order scope changed since analysis. Re-run containment before approval."), {
@@ -314,8 +314,8 @@ export async function approveAndExecute(caseCode: string, input: ApproveInput): 
   }
 
   const mode = uipathMode();
-  addApproval(c.id, input.role, input.name, input.decision, input.reason ?? null, included.length, currentHash);
-  addTimeline(c.id, `${input.name} (${input.role})`, "QA approved stop-ship", `Approved quarantine of ${included.length} orders. Governance gate passed.`, {
+  await addApproval(c.id, input.role, input.name, input.decision, input.reason ?? null, included.length, currentHash);
+  await addTimeline(c.id, `${input.name} (${input.role})`, "QA approved stop-ship", `Approved quarantine of ${included.length} orders. Governance gate passed.`, {
     phase: "approval",
     from: c.status as CaseRow["status"],
     to: "Mutating Orders",
@@ -323,7 +323,7 @@ export async function approveAndExecute(caseCode: string, input: ApproveInput): 
 
   // Close the real UiPath Action Center approval task with the human decision (cloud mode).
   if (mode === "cloud") {
-    const taskRun = getGovernedRuns(c.id)
+    const taskRun = (await getGovernedRuns(c.id))
       .filter((g) => g.kind === "approval_task" && g.status === "pending")
       .pop();
     const tid = taskRun?.run_ref.match(/UIPATH-TASK-(\d+)/)?.[1];
@@ -335,17 +335,17 @@ export async function approveAndExecute(caseCode: string, input: ApproveInput): 
         approvedCount: included.length,
       });
       if (done.ok) {
-        updateGovernedRunByRef(c.id, taskRun.run_ref, "completed", taskRun.detail);
-        addTimeline(c.id, `${input.name} (${input.role})`, "UiPath approval task completed", `Action Center task ${taskRun.run_ref} closed with decision ${input.decision}.`, {
+        await updateGovernedRunByRef(c.id, taskRun.run_ref, "completed", taskRun.detail);
+        await addTimeline(c.id, `${input.name} (${input.role})`, "UiPath approval task completed", `Action Center task ${taskRun.run_ref} closed with decision ${input.decision}.`, {
           phase: "approval",
         });
       }
     }
   }
 
-  updateCaseStatus(c.id, "Mutating Orders");
+  await updateCaseStatus(c.id, "Mutating Orders");
   const mref = runRef("order_mutation", caseCode);
-  addGovernedRun(c.id, "order_mutation", mode, mref, "running", `${included.length} orders`);
+  await addGovernedRun(c.id, "order_mutation", mode, mref, "running", `${included.length} orders`);
   if (mode === "cloud" && process.env.UIPATH_PROCESS_KEY_ORDER_MUTATION) {
     void startCloudProcess(process.env.UIPATH_PROCESS_KEY_ORDER_MUTATION, {
       caseCode,
@@ -356,27 +356,27 @@ export async function approveAndExecute(caseCode: string, input: ApproveInput): 
   // real persisted mutation
   const quarantine = (process.env.ORDER_QUARANTINE_STATUS as "Quarantined - QA Review") || "Quarantined - QA Review";
   for (const r of included) {
-    updateOrderStatus(r.order_id, quarantine);
-    setCaseOrderResult(r.id, quarantine, "changed", 0);
+    await updateOrderStatus(r.order_id, quarantine);
+    await setCaseOrderResult(r.id, quarantine, "changed", 0);
   }
 
   // verify via readback
-  updateCaseStatus(c.id, "Verifying");
+  await updateCaseStatus(c.id, "Verifying");
   let changed = 0;
   let failed = 0;
   for (const r of included) {
-    const o = getOrderByCode(r.order_code);
+    const o = await getOrderByCode(r.order_code);
     if (o && o.status === quarantine) {
-      setCaseOrderResult(r.id, quarantine, "changed", 1);
+      await setCaseOrderResult(r.id, quarantine, "changed", 1);
       changed++;
     } else {
-      setCaseOrderResult(r.id, (o?.status as CaseOrderRow["final_status"]) ?? null, "failed", 0);
+      await setCaseOrderResult(r.id, (o?.status as CaseOrderRow["final_status"]) ?? null, "failed", 0);
       failed++;
     }
   }
   const expected = included.length;
-  addGovernedRun(c.id, "verification", mode, runRef("verification", caseCode), failed === 0 ? "verified" : "partial", `${changed}/${expected} verified`);
-  addTimeline(c.id, "Batch Containment Agent", "Verified mutation", `${changed} of ${expected} orders verified as ${quarantine}.`, {
+  await addGovernedRun(c.id, "verification", mode, runRef("verification", caseCode), failed === 0 ? "verified" : "partial", `${changed}/${expected} verified`);
+  await addTimeline(c.id, "Batch Containment Agent", "Verified mutation", `${changed} of ${expected} orders verified as ${quarantine}.`, {
     phase: "verify",
     from: "Mutating Orders",
     to: failed === 0 ? "Verified" : "Mutation Exception",
@@ -384,25 +384,25 @@ export async function approveAndExecute(caseCode: string, input: ApproveInput): 
 
   const packetCode = packetCodeFor(caseCode);
   if (failed === 0) {
-    updateCaseStatus(c.id, "Verified");
-    const summary = buildPacketSummary(caseCode, packetCode, input);
-    createPacket(c.id, packetCode, "Final", summary);
-    setCasePacket(c.id, packetCode);
-    addGovernedRun(c.id, "packet", mode, runRef("packet", caseCode), "final", packetCode);
-    addTimeline(c.id, "Batch Containment Agent", "Stop-Ship Packet saved", `Packet ${packetCode} created after verification.`, {
+    await updateCaseStatus(c.id, "Verified");
+    const summary = await buildPacketSummary(caseCode, packetCode, input);
+    await createPacket(c.id, packetCode, "Final", summary);
+    await setCasePacket(c.id, packetCode);
+    await addGovernedRun(c.id, "packet", mode, runRef("packet", caseCode), "final", packetCode);
+    await addTimeline(c.id, "Batch Containment Agent", "Stop-Ship Packet saved", `Packet ${packetCode} created after verification.`, {
       phase: "packet",
       from: "Verified",
       to: "Packet Saved",
     });
-    updateCaseStatus(c.id, "Packet Saved");
+    await updateCaseStatus(c.id, "Packet Saved");
     return { ok: true, status: "Packet Saved", packetCode, expected, changed, failed };
   }
 
-  updateCaseStatus(c.id, "Mutation Exception");
-  const summary = buildPacketSummary(caseCode, packetCode, input);
-  createPacket(c.id, packetCode, "Pending", summary);
-  setCasePacket(c.id, packetCode);
-  addTimeline(c.id, "Batch Containment Agent", "Mutation exception", `${failed} orders failed verification; packet held as Pending.`, {
+  await updateCaseStatus(c.id, "Mutation Exception");
+  const summary = await buildPacketSummary(caseCode, packetCode, input);
+  await createPacket(c.id, packetCode, "Pending", summary);
+  await setCasePacket(c.id, packetCode);
+  await addTimeline(c.id, "Batch Containment Agent", "Mutation exception", `${failed} orders failed verification; packet held as Pending.`, {
     phase: "packet",
     from: "Mutation Exception",
     to: "Mutation Exception",
@@ -410,10 +410,9 @@ export async function approveAndExecute(caseCode: string, input: ApproveInput): 
   return { ok: true, status: "Mutation Exception", packetCode, expected, changed, failed };
 }
 
-function buildPacketSummary(caseCode: string, packetCode: string, input: ApproveInput) {
-  const c = getCase(caseCode)!;
-  const signal = getSignal(c.id);
-  const orders = getCaseOrders(c.id);
+async function buildPacketSummary(caseCode: string, packetCode: string, input: ApproveInput) {
+  const c = (await getCase(caseCode))!;
+  const [signal, orders, evidence] = await Promise.all([getSignal(c.id), getCaseOrders(c.id), getEvidence(c.id)]);
   const included = orders.filter((r) => r.included === 1);
   const excluded = orders.filter((r) => r.included !== 1);
   const valueCents = included.reduce((s, r) => s + (r.value_cents || 0), 0);
@@ -426,7 +425,7 @@ function buildPacketSummary(caseCode: string, packetCode: string, input: Approve
     approver: { name: input.name, role: input.role },
     scope: { lot: c.lot, sku: c.sku, warehouse: c.warehouse, severity: c.severity, confidence: c.confidence },
     signal: signal ? { id: signal.id, summary: signal.summary, source: signal.source, receivedAt: signal.received_at } : null,
-    evidence: getEvidence(c.id).map((e) => ({ kind: e.kind, label: e.label, detail: e.detail })),
+    evidence: evidence.map((e) => ({ kind: e.kind, label: e.label, detail: e.detail })),
     diff: { before: "Ready to Ship", after: "Quarantined - QA Review", count: included.length },
     verification: { expected: included.length, changed: included.filter((r) => r.mutation_result === "changed").length },
     exclusions: excluded.map((r) => ({ order: r.order_code, reason: r.reason, status: r.before_status })),

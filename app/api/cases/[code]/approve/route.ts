@@ -11,7 +11,7 @@ const DECISIONS: ApprovalDecision[] = ["approve_full", "approve_partial", "reque
 export async function POST(req: Request, { params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
   try {
-    ensureSeeded();
+    await ensureSeeded();
     const body = (await req.json().catch(() => ({}))) as Partial<ApproveInput>;
     const decision = body.decision;
     if (!decision || !DECISIONS.includes(decision)) {

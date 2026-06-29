@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export async function POST(_req: Request, { params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
   try {
-    ensureSeeded();
+    await ensureSeeded();
     const result = await runContainment(code);
     return NextResponse.json(result);
   } catch (e) {

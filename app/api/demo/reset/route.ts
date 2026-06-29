@@ -5,6 +5,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST() {
-  resetWorkspace();
+  await resetWorkspace();
   return NextResponse.json({ ok: true, message: "Demo workspace reset and reseeded." });
 }
