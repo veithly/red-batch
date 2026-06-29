@@ -83,7 +83,9 @@ next.js, react, typescript, node:sqlite, tailwindcss, uipath (maestro case), ope
 
 ## Try it / links
 
-- Live or runnable app: `http://localhost:4387` (run steps in `README.md`).
+- Live app: https://red-batch.veithly.workers.dev (Cloudflare Workers + D1, UiPath cloud mode — the
+  QA approval opens a real Action Center task). Deploy code on the `deploy/cloudflare` branch.
+- Or run locally: `http://localhost:4387` (run steps in `README.md`).
 - Public repo: https://github.com/veithly/red-batch
 - Demo video: https://youtu.be/tABpObnVRIs
 - Inspect: `/cases/RB-2049`, `/packets/RB-PKT-2049`, `/reopen`; or `npm run smoke`.

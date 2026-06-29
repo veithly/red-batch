@@ -9,7 +9,11 @@ state-changing step, and a reopenable outcome artifact.
 
 ## Try it
 
-- Run locally (see below), then open `http://localhost:4387`.
+- **Live demo:** https://red-batch.veithly.workers.dev (deployed on Cloudflare Workers + D1, running in
+  UiPath cloud mode — the QA approval opens a real Action Center task). The Cloudflare/D1 deployment
+  code lives on the [`deploy/cloudflare`](https://github.com/veithly/red-batch/tree/deploy/cloudflare)
+  branch; `main` keeps the zero-setup `node:sqlite` build for an easy local run.
+- Or run locally (see below), then open `http://localhost:4387`.
 - Demo path: pick a role on the entry screen, open case **RB-2049**, click **Run Containment**,
   approve the stop-ship, then open the saved **Stop-Ship Packet**.
 - Reopen path: go to `/reopen` and search `O-1042` to find the order and the case that froze it.
