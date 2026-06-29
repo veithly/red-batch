@@ -16,6 +16,11 @@ The Red Batch containment policy is also published to the tenant as a **UiPath c
 
 ![UiPath Orchestrator — published package "red-batch-containment"](uipath-orchestrator-package.png)
 
+It is also deployed as a runnable **Process** in the **Shared** folder (Automations → Processes), Type
+**Function (python)**, version **1.0.0**, entry point `main`:
+
+![UiPath Orchestrator — Process "Red Batch Containment Agent" in the Shared folder](uipath-orchestrator-process.png)
+
 It runs and returns the project's reference numbers:
 
 ```

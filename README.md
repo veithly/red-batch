@@ -80,6 +80,11 @@ genuine, verifiable usage — including a coded agent published into the tenant:
 
    ![UiPath Orchestrator — published package "red-batch-containment"](docs/uipath-orchestrator-package.png)
 
+   It is also deployed as a runnable **Process** in the **Shared** folder
+   (Automations → Processes), entry point `main`:
+
+   ![UiPath Orchestrator — Process "Red Batch Containment Agent" in the Shared folder](docs/uipath-orchestrator-process.png)
+
 2. **Admin → External Applications → "Red Batch Containment"** *(visible in the tenant)* — the Confidential
    OAuth 2.0 client-credentials app, scopes `OR.Tasks OR.Folders OR.Jobs OR.Execution`, that authenticates
    every call:
