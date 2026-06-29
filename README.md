@@ -17,7 +17,7 @@ Action Center task)**, explicit state mutation, verification, and a reopenable o
 | **Live app** | https://red-batch.veithly.workers.dev (Cloudflare Workers + D1, running in UiPath **cloud mode**) |
 | **Demo video** | https://youtu.be/tABpObnVRIs (3:19) |
 | **Repository** | https://github.com/veithly/red-batch |
-| **UiPath environment (built here)** | https://cloud.uipath.com/rickopc/DefaultTenant |
+| **UiPath environment (built here)** | https://cloud.uipath.com/rickopc/DefaultTenant — opens to an empty-looking dashboard on the Community plan; see [Where to see the UiPath usage](#where-to-see-the-uipath-usage) |
 | **Pitch deck** | [`docs/red-batch-deck.pdf`](docs/red-batch-deck.pdf) |
 
 ---
@@ -64,6 +64,34 @@ Built on the **UiPath Maestro Case** pattern and integrated **live** with the Ui
 The adapter that drives all of the above is `app/lib/uipath/orchestrator.ts`. With `UIPATH_*` credentials it
 runs in **cloud mode** against the live tenant; without them it falls back to an honest, clearly-labeled
 **local-governed** record and **never fakes a cloud call**.
+
+### Where to see the UiPath usage
+
+Opening the tenant URL lands on a near-empty Orchestrator dashboard, which can read as "nothing here." That
+is a **Community-plan UI limitation, not a missing integration** — the plan does not expose an **Action
+Center** UI, the **Maestro** canvas is empty until a process is published from Studio, and there is **no
+unattended robot** to show job runs. The integration Red Batch actually uses is the **Action Center Tasks
+API**, whose task store is reachable by API but has **no dashboard surface** on this plan. Here is where the
+genuine, verifiable usage lives:
+
+1. **Admin → External Applications → "Red Batch Containment"** *(visible in the tenant)* — the Confidential
+   OAuth 2.0 client-credentials app, scopes `OR.Tasks OR.Folders OR.Jobs OR.Execution`, that authenticates
+   every call. This is the one piece the Community UI does render:
+
+   ![UiPath Admin — External application "Red Batch Containment"](docs/uipath-external-app.png)
+
+2. **The live app's Governance panel** at https://red-batch.veithly.workers.dev shows
+   `Mode: Automation Cloud — configured for DefaultTenant` and a real **`UIPATH-TASK-…`** with a *View in
+   UiPath Action Center* deep link, proving the deployed app holds working tenant credentials.
+3. **Reproducible API proof** — with the same credentials, the agent's approval checkpoint calls
+   `POST orchestrator_/tasks/GenericTasks/CreateTask` and gets back a real task (HTTP **201**, e.g.
+   task **#4397163**), confirmed by `GetTaskDataById` (HTTP **200**). The OAuth token + Orchestrator
+   `Folders` read are reproducible with `node scripts/uipath-smoke.mjs` (prints `TOKEN_OK`, `FOLDERS 200`,
+   folder `Shared`).
+
+In short: the tasks are **created live in the tenant** at the human-approval line; the Community plan simply
+has no screen to list them. A tenant with Action Center / an unattended robot would surface them in the UI
+with no code change. **Full evidence with screenshots: [`docs/uipath-proof.md`](docs/uipath-proof.md).**
 
 ---
 
