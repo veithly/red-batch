@@ -1,0 +1,9 @@
+[project]
+name = "red-batch-containment"
+version = "1.0.0"
+description = "Red Batch — Batch Containment Agent (UiPath coded agent): deterministic product-safety stop-ship scoping with a human-approval gate."
+authors = [{ name = "Red Batch" }]
+dependencies = [
+    "uipath>=2.10.0, <2.12.0"
+]
+requires-python = ">=3.11"

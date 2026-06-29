@@ -25,6 +25,18 @@ cloudflare-env.d.ts
 .dev.vars
 !.env.example
 
+# uipath coded-agent CLI (venv + build artifacts + per-project token .env + tool scaffolding)
+/.venv-uipath/
+*.nupkg
+/uipath-agent/.uipath/
+/uipath-agent/.env
+/uipath-agent/uv.lock
+/uipath-agent/__pycache__/
+/uipath-agent/.agent/
+/uipath-agent/.claude/
+/uipath-agent/AGENTS.md
+/uipath-agent/CLAUDE.md
+
 # misc
 .DS_Store
 *.pem

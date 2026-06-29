@@ -1,0 +1,6 @@
+{
+  "ProjectType": "Function",
+  "Name": "red-batch-containment",
+  "Description": "Red Batch \u2014 Batch Containment Agent (UiPath coded agent): deterministic product-safety stop-ship scoping with a human-approval gate.",
+  "MainFile": null
+}

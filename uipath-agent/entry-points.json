@@ -1,0 +1,99 @@
+{
+    "$schema": "https://cloud.uipath.com/draft/2024-12/entry-point",
+    "$id": "entry-points.json",
+    "entryPoints": [
+        {
+            "filePath": "main",
+            "uniqueId": "843de274-337b-4771-b1cc-b17d0cb39e7e",
+            "type": "function",
+            "input": {
+                "type": "object",
+                "properties": {
+                    "case_code": {
+                        "type": "string"
+                    },
+                    "lot_id": {
+                        "type": "string"
+                    },
+                    "sku": {
+                        "type": "string"
+                    },
+                    "warehouse": {
+                        "type": "string"
+                    },
+                    "confidence": {
+                        "type": "number"
+                    },
+                    "ready_to_ship_orders": {
+                        "type": "integer"
+                    },
+                    "out_of_scope_orders": {
+                        "type": "integer"
+                    },
+                    "severity": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "case_code",
+                    "lot_id",
+                    "sku",
+                    "warehouse",
+                    "confidence"
+                ]
+            },
+            "output": {
+                "type": "object",
+                "properties": {
+                    "case_code": {
+                        "type": "string"
+                    },
+                    "decision": {
+                        "type": "string"
+                    },
+                    "orders_to_hold": {
+                        "type": "integer"
+                    },
+                    "orders_excluded": {
+                        "type": "integer"
+                    },
+                    "est_value_held": {
+                        "type": "number"
+                    },
+                    "zones": {
+                        "type": "integer"
+                    },
+                    "requires_approval": {
+                        "type": "boolean"
+                    },
+                    "rationale": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "case_code",
+                    "decision",
+                    "orders_to_hold",
+                    "orders_excluded",
+                    "est_value_held",
+                    "zones",
+                    "requires_approval",
+                    "rationale"
+                ]
+            },
+            "graph": {
+                "nodes": [
+                    {
+                        "id": "main.py:75",
+                        "name": "main",
+                        "type": "function",
+                        "metadata": {
+                            "file": "main.py"
+                        }
+                    }
+                ],
+                "edges": []
+            }
+        }
+    ]
+}
